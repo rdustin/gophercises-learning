@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type problem struct {
@@ -13,13 +14,13 @@ type problem struct {
 	answer   string
 }
 
+var Correct = 0
+
 func main() {
-	correct := 0
-	incorrect := 0
 	csvFileName := "problems.csv"
-	// timeLimit := 30
+	timeLimit := 30
 	flag.StringVar(&csvFileName, "csv", csvFileName, "a csv file in the format of 'question,answer' (default problems.csv)")
-	// flag.IntVar(&timeLimit, "limit", timeLimit, "the time limit for the quiz in seconds (default 30)")
+	flag.IntVar(&timeLimit, "limit", timeLimit, "the time limit for the quiz in seconds (default 30)")
 	flag.Parse()
 
 	file, err := os.Open(csvFileName)
@@ -34,20 +35,28 @@ func main() {
 		panic(err)
 	}
 
-	problems := parseLines(lines)
+	fmt.Println("Press enter to start")
+	fmt.Scanln()
+	q := make(chan bool)
+	t := make(chan bool)
 
-	for i, problem := range problems {
-		fmt.Printf("Problem: #%d: %s = ", i+1, problem.question)
-		var userAnswer string
-		fmt.Scanln(&userAnswer)
-		if userAnswer == problem.answer {
-			correct++
-		} else {
-			incorrect++
-		}
+	go func() {
+		problems := parseLines(lines)
+		doQuiz(problems)
+		q <- true
+	}()
+
+	go func() {
+		timer(timeLimit)
+		t <- true
+	}()
+
+	select {
+	case <-q:
+		fmt.Printf("\nYou scored %d out of %d\n", Correct, len(lines))
+	case <-t:
+		fmt.Printf("\nTime is up. You scored %d out of %d\n", Correct, len(lines))
 	}
-
-	fmt.Printf("Correct: %d out of: %d\n", correct, len(lines))
 }
 
 func parseLines(lines [][]string) []problem {
@@ -60,4 +69,19 @@ func parseLines(lines [][]string) []problem {
 		}
 	}
 	return result
+}
+
+func doQuiz(problems []problem) {
+	for i, problem := range problems {
+		fmt.Printf("Problem: #%d: %s = ", i+1, problem.question)
+		var userAnswer string
+		fmt.Scanln(&userAnswer)
+		if userAnswer == problem.answer {
+			Correct++
+		}
+	}
+}
+
+func timer(timeLimit int) {
+	time.Sleep(time.Duration(timeLimit) * time.Second)
 }
