@@ -38,23 +38,17 @@ func main() {
 	fmt.Println("Press enter to start")
 	fmt.Scanln()
 	q := make(chan bool)
-	t := make(chan bool)
 
 	go func() {
 		problems := parseLines(lines)
 		doQuiz(problems)
 		q <- true
 	}()
-
-	go func() {
-		timer(timeLimit)
-		t <- true
-	}()
-
+	timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
 	select {
 	case <-q:
 		fmt.Printf("\nYou scored %d out of %d\n", Correct, len(lines))
-	case <-t:
+	case <-timer.C:
 		fmt.Printf("\nTime is up. You scored %d out of %d\n", Correct, len(lines))
 	}
 }
@@ -80,8 +74,4 @@ func doQuiz(problems []problem) {
 			Correct++
 		}
 	}
-}
-
-func timer(timeLimit int) {
-	time.Sleep(time.Duration(timeLimit) * time.Second)
 }
