@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	urlshort "github.com/rdustin/gophercises-learning/url-shortener"
 )
@@ -19,13 +21,22 @@ func main() {
 
 	// Build the YAMLHandler using the mapHandler as the
 	// fallback
-	yaml := `
+	yaml := []byte(`
 - path: /urlshort
   url: https://github.com/gophercises/urlshort
 - path: /urlshort-final
   url: https://github.com/gophercises/urlshort/tree/solution
-`
-	yamlHandler, err := urlshort.YAMLHandler([]byte(yaml), mapHandler)
+`)
+	var err error
+	yamlPath := flag.String("y", "", "Path to yaml file denoting path and url combinations. (default empty)")
+	flag.Parse()
+	if *yamlPath != "" {
+		yaml, err = os.ReadFile(*yamlPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+	yamlHandler, err := urlshort.YAMLHandler(yaml, mapHandler)
 	if err != nil {
 		panic(err)
 	}
