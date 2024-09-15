@@ -27,6 +27,10 @@ func main() {
 - path: /urlshort-final
   url: https://github.com/gophercises/urlshort/tree/solution
 `)
+	json := []byte(`
+	[{"path": "/b", "url": "https://google.com"}]
+	`)
+	jsonPath := flag.String("j", "", "Path to json file denoting path and url combinations. (default empty)")
 	var err error
 	yamlPath := flag.String("y", "", "Path to yaml file denoting path and url combinations. (default empty)")
 	flag.Parse()
@@ -40,8 +44,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Build JsonHandler using the YAMLHandler as the fallback
+	if *jsonPath != "" {
+		json, err = os.ReadFile(*jsonPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+	jsonHandler, err := urlshort.JsonHandler(json, yamlHandler)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", yamlHandler)
+	http.ListenAndServe(":8080", jsonHandler)
 }
 
 func defaultMux() *http.ServeMux {
