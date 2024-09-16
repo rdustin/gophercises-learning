@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/boltdb/bolt"
 	"gopkg.in/yaml.v3"
 )
 
@@ -64,8 +65,26 @@ func JsonHandler(json []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	return MapHandler(pathMap, fallback), nil
 }
 
-func parseYAML(yml []byte) ([]shortner, error) {
-	parsedValues := []shortner{}
+func DbHandler(fallback http.Handler) (http.HandlerFunc, error) {
+	// don't like doing it this way, but for some reason the db is closing before it gets here if I pass it in
+	db, err := bolt.Open("paths.db", 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	var data []byte
+	err = db.View(func(tx *bolt.Tx) error {
+		data = tx.Bucket([]byte("DB")).Get([]byte("paths"))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return JsonHandler(data, fallback)
+}
+
+func parseYAML(yml []byte) ([]pathItem, error) {
+	parsedValues := []pathItem{}
 	err := yaml.Unmarshal(yml, &parsedValues)
 	if err != nil {
 		return nil, err
@@ -73,8 +92,8 @@ func parseYAML(yml []byte) ([]shortner, error) {
 	return parsedValues, nil
 }
 
-func parseJson(jsn []byte) ([]shortner, error) {
-	parsedValues := []shortner{}
+func parseJson(jsn []byte) ([]pathItem, error) {
+	parsedValues := []pathItem{}
 	err := json.Unmarshal(jsn, &parsedValues)
 	if err != nil {
 		return nil, err
@@ -82,15 +101,15 @@ func parseJson(jsn []byte) ([]shortner, error) {
 	return parsedValues, nil
 }
 
-func buildMap(y []shortner) map[string]string {
+func buildMap(pathItems []pathItem) map[string]string {
 	pathMap := map[string]string{}
-	for _, pm := range y {
-		pathMap[pm.Path] = pm.Url
+	for _, pi := range pathItems {
+		pathMap[pi.Path] = pi.Url
 	}
 	return pathMap
 }
 
-type shortner struct {
+type pathItem struct {
 	Path string
 	Url  string
 }

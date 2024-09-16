@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/boltdb/bolt"
 	urlshort "github.com/rdustin/gophercises-learning/url-shortener"
 )
 
@@ -56,8 +57,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_, err = setupDb()
+	if err != nil {
+		fmt.Print(err)
+	}
+	dbHandler, err := urlshort.DbHandler(jsonHandler)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", jsonHandler)
+	http.ListenAndServe(":8080", dbHandler)
 }
 
 func defaultMux() *http.ServeMux {
@@ -68,4 +78,35 @@ func defaultMux() *http.ServeMux {
 
 func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Hello, world!")
+}
+
+func setupDb() (*bolt.DB, error) {
+	db, err := bolt.Open("paths.db", 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	initDbData(db)
+	return db, nil
+}
+
+func initDbData(db *bolt.DB) {
+	data := []byte(`[{"path": "/z", "url": "https://google.com"}]`)
+	err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("DB"))
+		if err != nil {
+			return fmt.Errorf("could not create root bucket: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = db.Update(func(tx *bolt.Tx) error {
+		err = tx.Bucket([]byte("DB")).Put([]byte("paths"), data)
+		if err != nil {
+			return fmt.Errorf("could not set data")
+		}
+		return nil
+	})
 }
